@@ -1,0 +1,10 @@
+langchain>=0.1.0
+openai>=1.30.0
+qiskit>=1.0.0
+qiskit-aer>=0.13.0
+fastapi>=0.111.0
+python-dotenv>=1.2.2
+requests>=2.31.0
+band-sdk>=0.2.7
+scipy>=1.10.0
+numpy>=1.26.0
