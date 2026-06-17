@@ -4,12 +4,11 @@ import os
 import logging
 import requests
 
-# --- Add these two lines to fix the ModuleNotFoundError ---
+# Fix module imports when running from the terminal
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
-# ----------------------------------------------------------
 
-from codeorchestra.band.coordinator import Coordinator
+from codeorchestra.band_orchestra.coordinator import Coordinator
 from codeorchestra.config import GITHUB_TOKEN
 
 logger = logging.getLogger(__name__)
@@ -50,13 +49,28 @@ def main() -> None:
     pr_id = f"{args.repo.replace('/', '-')}-{args.pr_number}"
     coordinator = Coordinator(pr_id=pr_id)
     
-    report = coordinator.run_pipeline(diff_content)
+    # Prominently print the Band Room URL at the start
+    logger.info("\n" + "=" * 60)
+    logger.info(f"🚀 BAND ROOM CREATED: {coordinator.room_url}")
+    logger.info("=" * 60 + "\n")
     
-    logger.info("\n=============================================")
-    logger.info("CodeOrchestra orchestration pipeline finished")
-    logger.info(f"Available extracted keys: {list(report.keys())}")
-    logger.info(f"Check logs/{pr_id}.json for the full band metadata.")
-    logger.info("=============================================\n")
+    # Run the pipeline and retrieve structured return payload
+    results = coordinator.run_pipeline(diff_content)
+    
+    # Save the timeline log strictly through the RoomLogger
+    log_path = os.path.join(project_root, "logs", f"{pr_id}.json")
+    coordinator.room_logger.save_json(log_path)
+    
+    # Print the formatted end-of-run timeline summary
+    logger.info("\n" + "=" * 60)
+    logger.info("🕒 ORCHESTRATION TIMELINE:")
+    logger.info("-" * 60)
+    for entry in results["room_log"]:
+        content_preview = entry['content'].replace('\n', ' ')[:75]
+        logger.info(f"[{entry['timestamp']}] {entry['sender']} posted: {content_preview}...")
+    logger.info("=" * 60)
+    
+    logger.info(f"✅ CodeOrchestra execution complete. Immutable log saved to: {log_path}\n")
 
 if __name__ == "__main__":
     main()
