@@ -8,20 +8,17 @@ from codeorchestra.quantum.optimizer import QuantumTestOptimizer
 logger = logging.getLogger(__name__)
 
 class TesterAgent(BaseAgent):
-    """Agent responsible for generating an optimal test plan covering edge cases and regressions."""
-    
     def __init__(self) -> None:
         super().__init__(
             name="TesterAgent",
             role="Tester",
-            model_backend="huggingface",
-            model_name="mistralai/Mistral-7B-Instruct-v0.3",
+            model_backend="openrouter",
+            model_name="openrouter/free",  # <-- Switched to auto-router
             system_prompt="You generate a test plan covering edge cases and regressions for changed code."
         )
         self.optimizer = QuantumTestOptimizer()
 
     def process(self, task: str) -> str:
-        """Generates tests, maps to JSON, and optimizes the set via Quantum QAOA."""
         json_prompt = self.build_prompt(task) + (
             "\n\nBased on the code changes, generate a JSON array of test case dictionaries. "
             "Each dictionary MUST exactly have the keys 'name' (string) and 'covers' (array of strings, listing the edge cases covered). "
