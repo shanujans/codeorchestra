@@ -58,11 +58,17 @@ class QuantumTestOptimizer:
                 )
                 self.use_ibm_hardware = False
 
-    def _run_on_ibm_hardware(self, circuit: QuantumCircuit, shots: int = 1024) -> Dict[str, int]:
+    def _run_on_ibm_hardware(self, circuit: QuantumCircuit, shots: int = 1024,
+                              progress_callback=None) -> Dict[str, int]:
         """Transpiles for and runs the given circuit on the connected real
         IBM backend, returning measurement counts. Only used for the final
         tuned circuit -- NOT inside the COBYLA loop, since real-hardware
-        queue times make dozens of iterative calls impractical."""
+        queue times make dozens of iterative calls impractical.
+
+        progress_callback(event_dict): optional callable invoked once the
+        job is submitted (before blocking on result), so callers can emit
+        a live status event without waiting for the queue to clear.
+        """
         from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
         from qiskit_ibm_runtime import SamplerV2 as Sampler
 
@@ -72,10 +78,24 @@ class QuantumTestOptimizer:
         sampler = Sampler(mode=self._ibm_backend)
         sampler.options.default_shots = shots
         job = sampler.run([isa_circuit])
+
         logger.info(
             f"Submitted job {job.job_id()} to real IBM backend "
             f"'{self._ibm_backend.name}' -- this may take a while if the backend has a queue."
         )
+
+        # Notify caller immediately after submission so they can show a
+        # live "waiting for IBM queue" status without blocking.
+        if progress_callback:
+            try:
+                progress_callback({
+                    "type": "quantum_submitted",
+                    "job_id": job.job_id(),
+                    "backend": self._ibm_backend.name,
+                })
+            except Exception:
+                pass
+
         pub_result = job.result()[0]
         return pub_result.data.meas.get_counts()
 
@@ -166,7 +186,8 @@ class QuantumTestOptimizer:
 
         return expected_cost
 
-    def optimize(self, tests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def optimize(self, tests: List[Dict[str, Any]],
+                 progress_callback=None) -> List[Dict[str, Any]]:
         """
         1. Build the pairwise overlap matrix.
         2. Fold in per-test coverage-breadth reward to get a QUBO cost matrix.
@@ -219,7 +240,8 @@ class QuantumTestOptimizer:
 
         if self.use_ibm_hardware and self._ibm_backend:
             try:
-                counts = self._run_on_ibm_hardware(final_circuit, shots=1024)
+                counts = self._run_on_ibm_hardware(final_circuit, shots=1024,
+                                                    progress_callback=progress_callback)
                 logger.info(f"Final selection sampled from REAL IBM hardware ({self._ibm_backend.name}).")
             except Exception as e:
                 logger.warning(f"IBM hardware run failed ({e}); falling back to local AerSimulator for final sampling.")

@@ -19,6 +19,9 @@ class TesterAgent(BaseAgent):
             system_prompt="You generate a test plan covering edge cases and regressions for changed code."
         )
         self.optimizer = QuantumTestOptimizer(use_ibm_hardware=USE_IBM_HARDWARE)
+        # Optional callback injected by callers (e.g. dashboard SSE stream)
+        # that want live IBM job-submission events. Set before calling process().
+        self.progress_callback = None
 
     def _build_json_prompt(self, task: str, retry_reminder: bool = False) -> str:
         base = self.build_prompt(task) + (
@@ -90,7 +93,7 @@ class TesterAgent(BaseAgent):
             )
             return raw_response
 
-        optimized_tests = self.optimizer.optimize(valid_tests)
+        optimized_tests = self.optimizer.optimize(valid_tests, progress_callback=self.progress_callback)
         print(f"Quantum selected {len(optimized_tests)}/{len(valid_tests)} tests")
         logger.info(f"Quantum selected {len(optimized_tests)}/{len(valid_tests)} tests")
 
