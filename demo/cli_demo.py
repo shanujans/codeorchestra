@@ -13,6 +13,7 @@ Usage:
 
 import os
 import sys
+import json
 import time
 from datetime import datetime
 
@@ -102,6 +103,30 @@ def main() -> None:
         print(f"[{clock}] [{entry['sender']:<14}] [+{elapsed_ms:>6}ms] {preview}...")
 
     total_runtime = time.time() - pipeline_start
+
+    # Save a combined "showcase" JSON for the static Vercel replay deploy --
+    # includes room/elapsed alongside the timeline (the regular saved log
+    # only has the timeline). ibm_job is left blank here since capturing
+    # it requires hooking into Coordinator's internal agent construction;
+    # if you have a real IBM job id from a previous run's console output
+    # (e.g. "d8ptila01fac73d28ek0" on "ibm_marrakesh"), paste it into
+    # vercel-showcase/log.json manually -- it's a 10-second edit and the
+    # replay page handles it being blank gracefully either way.
+    showcase = {
+        "room": coordinator.room_url,
+        "ibm_job_id": None,
+        "ibm_backend": None,
+        "elapsed": round(total_runtime, 1),
+        "timeline": timeline,
+    }
+    showcase_dir = os.path.join(project_root, "vercel-showcase")
+    os.makedirs(showcase_dir, exist_ok=True)
+    showcase_path = os.path.join(showcase_dir, "log.json")
+    with open(showcase_path, "w", encoding="utf-8") as f:
+        json.dump(showcase, f, indent=2)
+    print(f"\nShowcase JSON written to: {showcase_path}")
+    print("(Optionally edit ibm_job_id/ibm_backend in that file before deploying.)")
+
     print_banner(f"DONE in {total_runtime:.1f}s total -- Band room: {coordinator.room_url}")
 
 
